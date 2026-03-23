@@ -12,8 +12,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 import traceback
 
 app = Flask(__name__)
-CORS(app, origins=["https://foreneye.netlify.app"])
-
+CORS(app)
 # ==============================
 # CONFIG
 # ==============================
