@@ -204,7 +204,7 @@
         if (logInput) formData.append('log_file', logInput);
 
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/upload_files', true);
+        xhr.open('POST', 'https://deepfake-cctv.onrender.com/upload_files', true);
 
         xhr.onload = function() {
             overlay.classList.remove('active');
