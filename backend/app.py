@@ -13,6 +13,14 @@ import traceback
 
 app = Flask(__name__)
 CORS(app)
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = 'https://foreneye.netlify.app'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
+
 # ==============================
 # CONFIG
 # ==============================
@@ -45,7 +53,7 @@ else:
 # ==============================
 # Deepfake Detection
 # ==============================
-def detect_deepfake(video_path, max_frames=10, threshold=0.5):
+def detect_deepfake(video_path, max_frames=5, threshold=0.5):
 
     if deepfake_model is None:
         return None, None, "Deepfake model not loaded"
