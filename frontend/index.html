@@ -205,7 +205,7 @@
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', 'https://deepfake-cctv.onrender.com/upload_files', true);
-
+        xhr.withCredentials = false; 
         xhr.onload = function() {
             overlay.classList.remove('active');
             btn.textContent = 'Analyze';
@@ -365,6 +365,7 @@
                
             }
         };
+        console.log("Sending XHR...");
         xhr.send(formData);
     });
     </script>
