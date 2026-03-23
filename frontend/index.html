@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>ForenEye</title>
+    <!-- For PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- For PNG capture of HTML elements -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1 class="app-name">ForenEye</h1>
+        <p>Proof integrity of your forensic CCTV evidence.</p>
+    </header>
+    
+    <main class="main-content">
+        <div class="upload-container">
+            <div class="footage-container">
+                <h2>Upload Footages</h2>
+                <label class="drop-zone" data-target="footage-preview">
+                    Drop or upload video files (.mp4, .wav)
+                    <input id="video-input" type="file" class="file-input" accept="video/*" />
+                </label>
+                <ul id="footage-preview" class="preview"></ul>
+            </div>
+            
+            <div class="server-container">
+                <h2>Upload Server Log (optional)</h2>
+                <label class="drop-zone" data-target="log-preview">
+                    Drop or upload log files (.csv, .txt)
+                    <input id="log-input" type="file" class="file-input" accept=".csv,.txt" />
+                </label>
+                <ul id="log-preview" class="preview"></ul>
+                <details class="log-format-info">
+                    <summary>Required CSV format</summary>
+                    <div class="log-format-body">
+                        <p>Your log file must be a <strong>.csv</strong> with at least these column headers:</p>
+                        <table class="format-table">
+                            <thead>
+                                <tr>
+                                    <th>timestamp</th>
+                                    <th>event</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>2024-01-01 08:00:00</td>
+                                    <td>Start camera</td>
+                                </tr>
+                                <tr>
+                                    <td>2024-01-01 08:00:03</td>
+                                    <td>Signal lost</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <ul class="format-notes">
+                            <li><strong>timestamp</strong> — datetime format e.g. <code>2024-01-01 08:00:00</code></li>
+                            <li><strong>event</strong> — event name e.g. <code>Signal lost</code></li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+        </div>
+            <div class="btn-center">
+                <div id="analyze-btn" class="analyze-btn">Analyze</div>
+            </div>
+
+        <div class="content-container">
+            <h2>Video Analysis</h2>
+            <button id="download-btn" class="analyze-btn">Download Report</button>
+            <div class="result-container">
+                <div class="analysis-results" id="analysis-results">
+                    <p class="prompt-msg">Click 'Analysis' to get your report!</p>
+                </div>
+            </div>
+        </div>
+        
+
+        <div id="toast-container"></div>
+    </main>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div>Analyzing video...</div>
+        <div class="loading-sub">This may take a moment...</div>
+    </div>
+
+    <script>
+        // Handle multiple drop zones independently
+        document.querySelectorAll('.drop-zone').forEach(dropZone => {
+            const targetId = dropZone.dataset.target;
+            const preview = document.getElementById(targetId);
+            const input = dropZone.querySelector('.file-input');
+
+            // Handle file input selection
+            input.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    preview.innerHTML = ""; // Clear previous file
+                    handleFiles([e.target.files[0]], preview); // Only first file
+                }
+            });
+
+            // Drag & drop
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.style.backgroundColor = "rgba(76,175,80,0.1)";
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.style.backgroundColor = "";
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.style.backgroundColor = "";
+                const files = [...e.dataTransfer.files];
+                if (files.length > 0) {
+                    preview.innerHTML = ""; // Clear previous file
+                    handleFiles([files[0]], preview); // Only first file
+                }
+            });
+        });
+
+        // Function to display files
+        function handleFiles(files, preview) {
+            const file = files[0]; // Only one file
+            const li = document.createElement('li');
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = file.name;
+            nameSpan.style.flex = "1";
+
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = "X";
+            removeBtn.className = "remove-btn";
+            removeBtn.addEventListener('click', () => {
+                li.remove();
+                // Clear the original input element
+                const inputElem = preview.parentElement.querySelector('input[type="file"]');
+                if (inputElem) inputElem.value = ""; 
+            });
+
+            // If video, show small preview
+            if (file.type.startsWith("video/")) {
+                const video = document.createElement('video');
+                video.src = URL.createObjectURL(file);
+                video.controls = true;
+                video.width = 80;
+                video.height = 45;
+                li.appendChild(video);
+            }
+
+            li.appendChild(nameSpan);
+            li.appendChild(removeBtn);
+            preview.appendChild(li);
+        }
+    </script>
+
+    <script>
+            function showToast(message, type='error') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            toast.classList.add('toast', type);
+            toast.textContent = message;
+            
+            container.appendChild(toast);
+            
+            // Trigger slide-in
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+    </script>
+
+    <script>
+    document.getElementById('analyze-btn').addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        console.log("clicked");
+
+        const videoInput = document.getElementById("video-input").files[0];
+        if (!videoInput) {
+            showToast("Please upload a video file!", "error");
+            return;
+        }
+
+        const overlay = document.getElementById('loading-overlay');
+        const btn = document.getElementById('analyze-btn');
+        overlay.classList.add('active');
+        btn.textContent = 'Analyzing...';
+
+        const formData = new FormData();
+        formData.append('video_file', videoInput);
+
+        const logInputElem = document.querySelector('label[data-target="log-preview"] input[type="file"]');
+        const logInput = logInputElem ? logInputElem.files[0] : null;
+        if (logInput) formData.append('log_file', logInput);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'http://127.0.0.1:5000/upload_files', true);
+
+        xhr.onload = function() {
+            overlay.classList.remove('active');
+            btn.textContent = 'Analyze';
+            console.log("HTTP status:", xhr.status);
+            console.log("Raw response:", xhr.responseText);
+
+            try {
+                const data = JSON.parse(xhr.responseText);
+                console.log("RESPONSE:", data);
+
+                if (data.status === 'success') {
+                    const promptMsg = document.querySelector(".prompt-msg");
+                    if (promptMsg) promptMsg.style.display = "none";
+
+                    showToast("Analysis complete!", "success");
+
+                    const resultsContainer = document.getElementById('analysis-results');
+                    resultsContainer.innerHTML = "";
+
+                    // Video card
+                    const videoCard = document.createElement('div');
+                    videoCard.className = 'analysis-card';
+
+                    const videoPreview = document.createElement('div');
+                    videoPreview.className = 'video-preview';
+                    const videoEl = document.createElement('video');
+                    videoEl.src = URL.createObjectURL(videoInput);
+                    videoEl.controls = true;
+                    videoEl.width = 160;
+                    videoEl.height = 90;
+                    videoPreview.appendChild(videoEl);
+                    videoCard.appendChild(videoPreview);
+
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'analysis-info';
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'file-name';
+                    nameSpan.textContent = data.video_file;
+                    infoDiv.appendChild(nameSpan);
+
+                    // Deepfake score
+                    const scoreContainer = document.createElement('div');
+                    scoreContainer.className = 'score-container';
+
+                    const scoreLabel = document.createElement('div');
+                    scoreLabel.className = 'score-label';
+                    scoreLabel.textContent = "Deepfake Score";
+                    scoreContainer.appendChild(scoreLabel);
+
+                    const scoreBar = document.createElement('div');
+                    scoreBar.className = 'score-bar';
+
+                    const scoreFill = document.createElement('div');
+                    scoreFill.className = 'score-fill';
+                    scoreFill.style.width = `${Math.round(data.deepfake_score * 100)}%`;
+                    let videoLabel = "";
+                    if (data.deepfake_score === 0) {
+                        videoLabel = "Real";
+                        scoreFill.style.backgroundColor = "#4CAF50"; // Green
+                    } else if (data.deepfake_score > 0 && data.deepfake_score <= 0.5) {
+                        videoLabel = "Suspicious";
+                        scoreFill.style.backgroundColor = "#FFC107"; // Yellow
+                    } else if (data.deepfake_score > 0.5) {
+                        videoLabel = "Fake";
+                        scoreFill.style.backgroundColor = "#F44336"; // Red
+                    }
+                    scoreBar.appendChild(scoreFill);
+
+                    const scoreText = document.createElement('span');
+                    scoreText.className = 'score-text';
+                    scoreText.textContent = `${Math.round(data.deepfake_score * 100)}% (${videoLabel})`;
+                    scoreBar.appendChild(scoreText);
+
+                    scoreContainer.appendChild(scoreBar);
+                    infoDiv.appendChild(scoreContainer);
+
+                    // Log status
+                    const logDiv = document.createElement('div');
+                    logDiv.className = 'log-status';
+
+                    const logText = document.createElement('span');
+                    logText.className = 'log-text';
+                    logText.textContent = "Server Log:";
+                    logDiv.appendChild(logText);
+
+                    const logResult = document.createElement('span');
+                    if (data.log_status === 'analyzed') {
+                        logResult.className = 'log-result matched';
+                        logResult.textContent = `Analyzed (${data.anomaly_count} anomalies)`;
+                    } else if (data.log_status === 'not_provided') {
+                        logResult.className = 'log-result';
+                        logResult.textContent = " Not provided";
+                    } else {
+                        logResult.className = 'log-result';
+                        logResult.textContent = `Error `;
+                    }
+                    logDiv.appendChild(logResult);
+                    infoDiv.appendChild(logDiv);
+
+                    videoCard.appendChild(infoDiv);
+                    resultsContainer.appendChild(videoCard);
+
+                    // Suspicious logs table
+                    if (data.suspicious_logs && data.suspicious_logs.length > 0) {
+                        const tableDiv = document.createElement('div');
+                        tableDiv.className = 'log-table-container';
+
+                        const tableTitle = document.createElement('h3');
+                        tableTitle.textContent = "Suspicious Log Entries";
+                        tableDiv.appendChild(tableTitle);
+
+                        const table = document.createElement('table');
+                        const thead = document.createElement('thead');
+                        const headerRow = document.createElement('tr');
+                        ["Timestamp","Event","Hour","Minute","Second","Time Diff"].forEach(h => {
+                            const th = document.createElement('th');
+                            th.textContent = h;
+                            headerRow.appendChild(th);
+                        });
+                        thead.appendChild(headerRow);
+                        table.appendChild(thead);
+
+                        const tbody = document.createElement('tbody');
+                        data.suspicious_logs.forEach(log => {
+                            const row = document.createElement('tr');
+                            ["timestamp","event","hour","minute","second","time_diff"].forEach(k => {
+                                const td = document.createElement('td');
+                                td.textContent = log[k];
+                                row.appendChild(td);
+                            });
+                            tbody.appendChild(row);
+                        });
+                        table.appendChild(tbody);
+                        tableDiv.appendChild(table);
+                        resultsContainer.appendChild(tableDiv);
+                    }
+                    document.dispatchEvent(new Event('analysisSuccess'));
+                } else {
+                    showToast("Error: " + data.message, "error");
+                    document.dispatchEvent(new Event('analysisFailed'));
+                }
+            } catch (e) {
+                console.error("Parse error:", e);
+                showToast("Failed to parse response", "error");
+                document.dispatchEvent(new Event('analysisFailed'));
+            }
+        };
+
+        xhr.onerror = function() {
+            overlay.classList.remove('active');
+            btn.textContent = 'Analyze';
+            console.error("XHR error");
+            showToast("Server connection failed!", "error");
+        };
+
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                const pct = Math.round((e.loaded / e.total) * 100);
+                console.log("Upload progress:", pct + "%");
+            }
+        };
+
+        console.log("Sending XHR...");
+        xhr.send(formData);
+    });
+    </script>
+
+    <script>
+    // Prevent any form submission from reloading
+    document.addEventListener('submit', function(e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        console.log("Form submit blocked");
+    });
+
+    // Catch all JS errors globally
+    window.addEventListener('error', (event) => {
+        console.error("Global JS error caught:", event.message, event.filename, event.lineno);
+        event.preventDefault(); // prevent browser default
+    });
+
+    // Catch unhandled promise rejections
+    window.addEventListener('unhandledrejection', (event) => {
+        console.error("Unhandled promise rejection:", event.reason);
+        event.preventDefault();
+    });
+    </script>
+
+
+    <script>
+        const downloadBtn = document.getElementById('download-btn');
+
+        // Listen for custom events to show/hide download button
+        document.addEventListener('analysisSuccess', () => {
+            downloadBtn.style.display = 'inline-block';
+        });
+
+        document.addEventListener('analysisFailed', () => {
+            downloadBtn.style.display = 'none';
+        });
+
+        // Wrap original download button logic (unchanged)
+        downloadBtn.addEventListener('click', async () => {
+            const results = document.getElementById('analysis-results');
+            if (!results || results.innerHTML.trim() === '') {
+                alert("No analysis results available to generate report!");
+                return;
+            }
+
+            // Create a report container
+            const reportDiv = document.createElement('div');
+            reportDiv.className = "report-container";
+
+            // Header with logo and title
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'report-header';
+            const title = document.createElement('h2');
+            title.textContent = "ForenEye Forensic Analysis Report";
+            headerDiv.appendChild(title);
+            reportDiv.appendChild(headerDiv);
+
+            // Clone analysis results
+            const clonedResults = results.cloneNode(true);
+            reportDiv.appendChild(clonedResults);
+
+            // Verified footer
+            const footer = document.createElement('div');
+            footer.className = 'report-footer';
+            footer.textContent = "Verified by ForenEye";
+            reportDiv.appendChild(footer);
+
+            document.body.appendChild(reportDiv);
+
+            // Generate PDF
+            const canvas = await html2canvas(reportDiv, {scale: 2});
+            const imgData = canvas.toDataURL('image/png');
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'pt', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save('ForenEye_Forensic_Report.pdf');
+
+            document.body.removeChild(reportDiv); // cleanup
+        });
+    </script>
+        
+</body>
+</html>
