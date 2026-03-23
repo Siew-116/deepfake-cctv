@@ -11,7 +11,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 import traceback
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://foreneye.netlify.app"])
 
 # ==============================
 # CONFIG
@@ -24,8 +24,8 @@ app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 # ==============================
 # Load Models
 # ==============================
-PIPELINE_PATH = 'model\log_anomaly_isolation_forest_v1.pkl'
-MODEL_PATH = "model\VGG_2_FINAL.h5"
+PIPELINE_PATH = 'model/log_anomaly_isolation_forest_v1.pkl'
+MODEL_PATH = "model/VGG_2_FINAL.h5"
 
 deepfake_model = None
 
@@ -188,16 +188,8 @@ def upload_files():
         return jsonify({'status':'error','message':str(e)}), 500
 
 
-@app.route('/')
-def serve_index():
-    return send_from_directory('../frontend', 'index.html')
-
-@app.route('/<path:filename>')
-def serve_static(filename):
-    return send_from_directory('../frontend', filename)
-
 # ==============================
 # Run
 # ==============================
 if __name__ == '__main__':
-    app.run(debug=True, threaded=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True, use_reloader=False)
