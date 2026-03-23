@@ -184,8 +184,7 @@
     document.getElementById('analyze-btn').addEventListener('click', async (event) => {
         event.preventDefault();
         event.stopPropagation();
-        console.log("clicked");
-
+   
         const videoInput = document.getElementById("video-input").files[0];
         if (!videoInput) {
             showToast("Please upload a video file!", "error");
@@ -205,18 +204,15 @@
         if (logInput) formData.append('log_file', logInput);
 
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', 'http://127.0.0.1:5000/upload_files', true);
+        xhr.open('POST', '/upload_files', true);
 
         xhr.onload = function() {
             overlay.classList.remove('active');
             btn.textContent = 'Analyze';
-            console.log("HTTP status:", xhr.status);
-            console.log("Raw response:", xhr.responseText);
-
+          
             try {
                 const data = JSON.parse(xhr.responseText);
-                console.log("RESPONSE:", data);
-
+         
                 if (data.status === 'success') {
                     const promptMsg = document.querySelector(".prompt-msg");
                     if (promptMsg) promptMsg.style.display = "none";
@@ -366,11 +362,9 @@
         xhr.upload.onprogress = function(e) {
             if (e.lengthComputable) {
                 const pct = Math.round((e.loaded / e.total) * 100);
-                console.log("Upload progress:", pct + "%");
+               
             }
         };
-
-        console.log("Sending XHR...");
         xhr.send(formData);
     });
     </script>
@@ -380,7 +374,6 @@
     document.addEventListener('submit', function(e) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        console.log("Form submit blocked");
     });
 
     // Catch all JS errors globally
