@@ -4,6 +4,7 @@ import joblib
 import pandas as pd
 import cv2
 import numpy as np
+import psutil
 
 from tensorflow.keras.models import load_model
 from flask_cors import CORS
@@ -139,8 +140,9 @@ def handle_large_file(e):
 # ==============================
 @app.route('/upload_files', methods=['POST'])
 def upload_files():
+    process = psutil.Process(os.getpid())
+    print(f"Memory before: {process.memory_info().rss / 1024 / 1024:.1f} MB")
     try:
-
         if 'video_file' not in request.files:
             return jsonify({'status':'error','message':'video_file missing'}), 400
 
@@ -180,13 +182,13 @@ def upload_files():
                 response['suspicious_logs'] = suspicious_logs
         else:
             response['log_status'] = 'not_provided'
-
+        print(f"Memory after: {process.memory_info().rss / 1024 / 1024:.1f} MB")
         return jsonify(response)
-
+    
     except Exception as e:
         traceback.print_exc()
         return jsonify({'status':'error','message':str(e)}), 500
-
+    
 
 # ==============================
 # Run
